@@ -188,8 +188,53 @@ graph TD
     PAY --> BOOK
     NOTIF --> MONGO
 ```
+## 10A. File Structure - DDD + layered + clean architecture
 
----
+```
+bookmyshow-backend/
+├── pom.xml
+├── src/
+│   ├── main/
+│   │   ├── java/
+│   │   │   └── com/
+│   │   │       └── bookmyshow/
+│   │   │           ├── BookMyShowApplication.java
+│   │   │           ├── config/                       # app-wide configs
+│   │   │           │   ├── SecurityConfig.java
+│   │   │           │   └── SwaggerConfig.java
+│   │   │           ├── common/                       # shared utils, exceptions
+│   │   │           │   ├── exception/
+│   │   │           │   └── util/
+│   │   │           ├── auth/                         # auth & JWT
+│   │   │           │   ├── controller/
+│   │   │           │   ├── dto/
+│   │   │           │   ├── entity/
+│   │   │           │   ├── repository/
+│   │   │           │   └── service/
+│   │   │           ├── user/                         # user profile & history
+│   │   │           │   ├── controller/
+│   │   │           │   ├── dto/
+│   │   │           │   ├── entity/
+│   │   │           │   ├── repository/
+│   │   │           │   └── service/
+│   │   │           ├── city/                         # cities
+│   │   │           ├── theatre/                      # theatres, screens, seats
+│   │   │           ├── movie/                        # movie catalog
+│   │   │           ├── show/                         # showtimes
+│   │   │           ├── seatlock/                     # redis lock logic
+│   │   │           ├── booking/                      # booking workflow
+│   │   │           ├── payment/                      # payment gateway stubs
+│   │   │           ├── notification/                 # async notifications
+│   │   │           └── review/                       # MongoDB-backed reviews
+│   │   └── resources/
+│   │       ├── application.yml
+│   │       └── db/
+│   │           └── migration/                        # (if using Flyway/Liquibase)
+│   └── test/
+│       └── java/com/bookmyshow/                      # unit/integration tests
+└── README.md
+```
+
 
 ## ⚙️ 11. Tech Stack Summary
 
