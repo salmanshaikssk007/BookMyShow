@@ -5,7 +5,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 
-public interface UsersRepository extends JpaRepository<User , Long> {
+//// Repository interface for User entity
+// It extends JpaRepository to provide CRUD operations and custom query methods
+// // The User entity is identified by a Long type ID
+public interface UserRepository extends JpaRepository<User , Long> {
     // Method to find a user by their username
     Optional<User> findByUsername(String username);
 

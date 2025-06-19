@@ -70,6 +70,4 @@ public class JwtUtils {
             throw new RuntimeException("Invalid JWT token", e);
         }
     }
-
-
 }
