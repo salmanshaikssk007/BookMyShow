@@ -27,7 +27,8 @@ public class AuthServiceImpl implements AuthService{
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new RuntimeException("Username is already taken");
         }
-        if (userRepository.findByEmail(request.getEmail())) {
+        // Check if the email is already registered
+        if (userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email is already registered");
         }
 

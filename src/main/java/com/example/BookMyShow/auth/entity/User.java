@@ -17,6 +17,7 @@ import java.util.Set;
 @Table(name = "users") // Table name in the database
 // This class represents a User entity in the BookMyShow application.
 public class User {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id; // Unique identifier for the user
@@ -30,11 +31,8 @@ public class User {
     @Column(nullable = false)
     private String password; // Password for the user, should be stored securely (hashed)
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "role", nullable = false)
     @Builder.Default
-    private Set<Role> roles = new HashSet<>();
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Role role = Role.ROLE_USER; // Role of the user, default is ROLE_USER
 }

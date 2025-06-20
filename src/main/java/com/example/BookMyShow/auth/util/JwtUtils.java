@@ -1,6 +1,8 @@
 package com.example.BookMyShow.auth.util;
 
 import io.jsonwebtoken.*;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
@@ -12,10 +14,13 @@ import java.util.List;
 public class JwtUtils {
 
     private final Key jwtSecretKey;
-    private final int jwtExpirationMs;
+    private final long jwtExpirationMs;
 
-    public JwtUtils(Key jwtSecretKey, int jwtExpirationMs) {
-        this.jwtSecretKey = jwtSecretKey;
+    public JwtUtils(
+            @Value("${app.jwt.secret}") String jwtSecret,
+            @Value("${app.jwt.expiration-ms}") long jwtExpirationMs
+    ) {
+        this.jwtSecretKey = Keys.hmacShaKeyFor(jwtSecret.getBytes());
         this.jwtExpirationMs = jwtExpirationMs;
     }
     /**

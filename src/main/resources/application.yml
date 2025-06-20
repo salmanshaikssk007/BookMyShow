@@ -1,26 +1,50 @@
+# Application Metadata
 spring:
   application:
-    name: BookMyShow
+    name: BookMyShow   # Logical name of the application
 
+  # Primary relational database configuration (PostgreSQL)
   datasource:
-    url: jdbc:postgresql://localhost:5432/BookMyShow
-    username: postgres
-    password: password
-    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/BookMyShow   # JDBC URL to connect to the DB
+    username: postgres                                # Database username
+    password: password                                # Database password (consider externalizing!)
+    driver-class-name: org.postgresql.Driver          # JDBC driver class
 
+  # JPA / Hibernate settings
   jpa:
     hibernate:
-      ddl-auto: update       # validate | update | create | create-drop
-    show-sql: true
+      ddl-auto: update      # Schema management mode: validate | update | create | create-drop
+      jta:
+        platform: org.hibernate.engine.transaction.jta.platform.internal.AtomikosJtaPlatform
+        # JTA integration: specify Atomikos for XA transactions (optional)
+      show-sql: true        # Log generated SQL statements to the console
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        # SQL dialect to optimize generated queries for PostgreSQL
 
+  # Redis caching/session store configuration
   redis:
-    host: localhost
-    port: 6379
+    host: localhost         # Redis server host
+    port: 6379              # Redis server port
+    repositories:
+      enabled: false        # Disable Spring Data Redis repositories if not using them
 
+  # Logging configuration
+  logging:
+    level:
+      root: INFO             # Default logging level
+      org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping: DEBUG # Enable DEBUG for request mapping
+
+# HTTP server configuration
 server:
-  port: 8080
+  port: 8080               # Port Tomcat will listen on
   servlet:
-    context-path: /api
+    context-path: /    # Base path for all REST endpoints
+
+
+# Custom application properties
+app:
+  jwt:
+    secret: "ascrthjnsfnlknoianfr34r342*23scg"  # Secret key to sign JWTs (rotate regularly!)
+    expiration-ms: 86400000                    # JWT expiration time in milliseconds (24h)

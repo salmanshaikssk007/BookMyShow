@@ -5,6 +5,8 @@ import com.example.BookMyShow.auth.dto.LoginRequest;
 import com.example.BookMyShow.auth.dto.SignUpRequest;
 
 public interface AuthService {
-    void register(SignUpRequest request);
+    void registerAdmin(SignUpRequest request);
+    void registerUser(SignUpRequest request);
+    void registerVendor(SignUpRequest request);
     JWTResponse login(LoginRequest request);
 }
