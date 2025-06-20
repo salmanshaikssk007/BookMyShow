@@ -2,7 +2,8 @@ package com.example.BookMyShow.auth.controller;
 
 import com.example.BookMyShow.auth.dto.JWTResponse;
 import com.example.BookMyShow.auth.dto.LoginRequest;
-import com.example.BookMyShow.auth.dto.SignUpRequest;
+import com.example.BookMyShow.auth.dto.UserSignUpRequest;
+import com.example.BookMyShow.auth.dto.VendorSignUpRequest;
 import com.example.BookMyShow.auth.service.AuthService;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.Valid;
@@ -19,10 +20,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
-    // /auth/signup to register a new user
-    @PostMapping("/signup")
-    public ResponseEntity<String> register(@Valid @RequestBody  SignUpRequest request) {
-        authService.register(request);
+    // /auth/user/signup to register a new user
+    @PostMapping("/user/signup")
+    public ResponseEntity<String> registerUser(@Valid @RequestBody UserSignUpRequest request) {
+        authService.registerUser(request);
+        return ResponseEntity.ok("User registered successfully");
+    }
+    @PostMapping("/vendor/signup")
+    public ResponseEntity<String> registerVendor(@Valid @RequestBody VendorSignUpRequest request) {
+        authService.registerVendor(request);
         return ResponseEntity.ok("User registered successfully");
     }
     //  /auth/login to login a user

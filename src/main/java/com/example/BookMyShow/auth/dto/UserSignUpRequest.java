@@ -11,7 +11,7 @@ import lombok.Data;
  * It contains the necessary fields for creating a new user: username, email, and password.
  * The fields are validated to ensure they meet specific criteria.
  */
-public class SignUpRequest {
+public class UserSignUpRequest {
     @NotBlank(message = "Username is required")
     @Size(min = 3, max = 20, message = "Username must be between 3 and 20 characters long")
     private String username; // Username for the user, must be between 3 and 20 characters long

@@ -4,8 +4,6 @@ import com.example.BookMyShow.auth.entity.Role;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
-import java.util.List;
-
 @Data
 @AllArgsConstructor
 /**
@@ -19,5 +17,5 @@ public class JWTResponse {
     private Long id; // Unique identifier for the user
     private String username; // Username of the authenticated user
     private String email; // Email of the authenticated user
-    private List<String> roles; // List of roles assigned to the user
+    private Role role; // Role of the authenticated user, e.g., USER, ADMIN, VENDOR
 }

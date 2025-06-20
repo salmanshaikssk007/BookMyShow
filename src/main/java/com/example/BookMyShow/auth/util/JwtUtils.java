@@ -1,5 +1,6 @@
 package com.example.BookMyShow.auth.util;
 
+import com.example.BookMyShow.auth.entity.Role;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,10 +27,10 @@ public class JwtUtils {
     /**
      * Generate a JWT token containing username and roles as claims.
      */
-    public String generateJwtToken(String username , List<String> roles){
+    public String generateJwtToken(String username , Role role){
         return Jwts.builder()
                 .setSubject(username)
-                .claim("roles", roles)
+                .claim("role", role)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
                 .signWith(jwtSecretKey, SignatureAlgorithm.HS256)
