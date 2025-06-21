@@ -31,4 +31,4 @@ build/
 ### VS Code ###
 .vscode/
 ### ignore real Spring config with secrets
-/src/main/resources/application.yml
+src/main/resources/application.yml

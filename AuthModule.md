@@ -42,17 +42,62 @@ Implement a secure, stateless authentication and authorization system with suppo
 sequenceDiagram
     participant Client
     participant AuthController
+    participant AuthService
     participant LoginRepo
-    participant EntityRepo
+    participant UserRepo
+    participant VendorRepo
+    participant AdminRepo
     participant JwtUtils
 
+    %% Login Flow
     Client->>AuthController: POST /auth/login
-    AuthController->>LoginRepo: findByUsername()
-    LoginRepo-->>AuthController: return entityId + role
-    AuthController->>EntityRepo: validate password
-    AuthController->>JwtUtils: generate token
-    JwtUtils-->>AuthController: token
-    AuthController-->>Client: 200 OK + Bearer token
+    AuthController->>AuthService: login(username, password)
+    AuthService->>LoginRepo: findByUsername()
+    LoginRepo-->>AuthService: {role, entityId}
+    alt Role = USER
+        AuthService->>UserRepo: findById()
+        UserRepo-->>AuthService: User
+        AuthService->>JwtUtils: generateToken(user)
+        JwtUtils-->>AuthService: JWT Token (User)
+    else Role = VENDOR
+        AuthService->>VendorRepo: findById()
+        VendorRepo-->>AuthService: Vendor
+        AuthService->>JwtUtils: generateToken(vendor)
+        JwtUtils-->>AuthService: JWT Token (Vendor)
+    else Role = ADMIN
+        AuthService->>AdminRepo: findById()
+        AdminRepo-->>AuthService: Admin
+        AuthService->>JwtUtils: generateToken(admin)
+        JwtUtils-->>AuthService: JWT Token (Admin)
+    end
+    AuthService-->>AuthController: JWT Token
+    AuthController-->>Client: 200 OK + Bearer Token
+
+    %% User Signup Flow
+    Client->>AuthController: POST /auth/signup/user
+    AuthController->>AuthService: registerUser(dto)
+    AuthService->>UserRepo: save(user)
+    AuthService->>LoginRepo: saveLogin(userId, USER)
+
+    %% Vendor Signup Flow
+    Client->>AuthController: POST /auth/signup/vendor
+    AuthController->>AuthService: registerVendor(dto)
+    AuthService->>VendorRepo: save(vendor)
+    AuthService->>LoginRepo: saveLogin(vendorId, VENDOR)
+
+    %% Admin Creation by Admin
+    Client->>AdminController: POST /admin/create?creatorId
+    AdminController->>AdminService: createAdmin(request, creatorId)
+    AdminService->>AdminRepo: findById(creatorId)
+    AdminService->>AdminZoneRepo: validateZone(targetZoneCode)
+    alt Valid Zone
+        AdminService->>AdminRepo: save(newAdmin)
+        AdminService->>LoginRepo: saveLogin(newAdminId, ADMIN)
+        AdminService-->>AdminController: Success
+    else Invalid Zone
+        AdminService-->>AdminController: Throw ZoneHierarchyError
+    end
+    AdminController-->>Client: Response (201/400)
 ```
 
 # 🔐 Auth Module – Dev Seeder + API + Security + Extensions
