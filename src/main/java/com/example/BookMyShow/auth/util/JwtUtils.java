@@ -2,6 +2,7 @@ package com.example.BookMyShow.auth.util;
 
 import com.example.BookMyShow.auth.entity.Role;
 import io.jsonwebtoken.*;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -21,7 +22,8 @@ public class JwtUtils {
             @Value("${app.jwt.secret}") String jwtSecret,
             @Value("${app.jwt.expiration-ms}") long jwtExpirationMs
     ) {
-        this.jwtSecretKey = Keys.hmacShaKeyFor(jwtSecret.getBytes());
+        byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
+        this.jwtSecretKey = Keys.hmacShaKeyFor(keyBytes);
         this.jwtExpirationMs = jwtExpirationMs;
     }
     /**
@@ -47,8 +49,8 @@ public class JwtUtils {
      * Extract the roles from the JWT token.
      */
     @SuppressWarnings("unchecked")
-    public List<String> getRolesFromJwtToken(String token) {
-        return parseClaims(token).getBody().get("roles", List.class);
+    public String getRolesFromJwtToken(String token) {
+        return parseClaims(token).getBody().get("role", String.class);
     }
     /**
      * Validate the JWT token.

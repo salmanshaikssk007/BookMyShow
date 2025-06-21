@@ -1,5 +1,8 @@
 # Application Metadata
 spring:
+  profiles:
+    active: dev          # Active profile (dev, prod, etc.)
+    # Application name and metadata
   application:
     name: BookMyShow   # Logical name of the application
 
@@ -46,5 +49,5 @@ server:
 # Custom application properties
 app:
   jwt:
-    secret: "ascrthjnsfnlknoianfr34r342*23scg"  # Secret key to sign JWTs (rotate regularly!)
+    secret: bG9uZy1ieXRlLXJhbmRvbS1iYXNlNjQtc2VjcmV0LWhlcmU=  # Secret key to sign JWTs (rotate regularly!)
     expiration-ms: 86400000                    # JWT expiration time in milliseconds (24h)

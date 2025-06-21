@@ -1,13 +1,8 @@
 package com.example.BookMyShow.auth.service;
 
-import com.example.BookMyShow.auth.dto.JWTResponse;
-import com.example.BookMyShow.auth.dto.LoginRequest;
-import com.example.BookMyShow.auth.dto.UserSignUpRequest;
-import com.example.BookMyShow.auth.dto.VendorSignUpRequest;
-import com.example.BookMyShow.auth.entity.LoginUserCredRoleCheck;
-import com.example.BookMyShow.auth.entity.Role;
-import com.example.BookMyShow.auth.entity.User;
-import com.example.BookMyShow.auth.entity.VendorProfile;
+import com.example.BookMyShow.auth.dto.*;
+import com.example.BookMyShow.auth.entity.*;
+import com.example.BookMyShow.auth.repository.AdminRepository;
 import com.example.BookMyShow.auth.repository.LoginCredRepository;
 import com.example.BookMyShow.auth.repository.UserRepository;
 import com.example.BookMyShow.auth.repository.VendorRepository;
@@ -23,6 +18,7 @@ public class AuthServiceImpl implements AuthService{
     private final UserRepository userRepository;
     private final VendorRepository vendorRepository;
     private final LoginCredRepository loginCredRepository;
+    private final AdminRepository adminRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
 
@@ -115,6 +111,15 @@ public class AuthServiceImpl implements AuthService{
                 }
                  token = jwtUtils.generateJwtToken(vendor.getBussinessName(), role);
                 return new JWTResponse(token , "Bearer" , vendor.getId() , vendor.getBussinessName() , vendor.getEmail(), role);
+            case ROLE_ADMIN:
+                // Assuming you have an Admin entity and repository, you can implement similar logic here
+                 AdminProfile admin = adminRepository.findById(entityId)
+                         .orElseThrow(() -> new RuntimeException("Admin not found"));
+                 if(!passwordEncoder.matches(request.getPassword(), admin.getPassword())) {
+                     throw new RuntimeException("Invalid username or password");
+                 }
+                 token = jwtUtils.generateJwtToken(admin.getAdminName(), role);
+                 return new JWTResponse(token , "Bearer" , admin.getId() , admin.getAdminName() , admin.getEmail(), role);
             default:
                 throw new RuntimeException("Invalid role");
         }

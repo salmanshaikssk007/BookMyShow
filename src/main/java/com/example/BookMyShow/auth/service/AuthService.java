@@ -1,9 +1,6 @@
 package com.example.BookMyShow.auth.service;
 
-import com.example.BookMyShow.auth.dto.JWTResponse;
-import com.example.BookMyShow.auth.dto.LoginRequest;
-import com.example.BookMyShow.auth.dto.UserSignUpRequest;
-import com.example.BookMyShow.auth.dto.VendorSignUpRequest;
+import com.example.BookMyShow.auth.dto.*;
 
 public interface AuthService {
     /**

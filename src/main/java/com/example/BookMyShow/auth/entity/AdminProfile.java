@@ -30,18 +30,18 @@ public class AdminProfile {
     @Column(nullable = false)
     private String phoneNumber; // Contact number for the admin
 
+
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role = Role.ROLE_ADMIN; // Role of the user, default is ROLE_ADMIN
 
-    @Column(nullable = false)
-    private boolean verified = false; // Verification status of the admin profile
+   @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name="zone_id", nullable = false)
+   private AdminZone adminZone ;
 
-    @Column(nullable = false , unique = true)
-    private String adminIdNo; // Unique id no for the admin, if applicable
-
-    @Column(nullable = false)
-    private Integer zoneNumbeer; // Zone number of the geo module
-
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name="created_by_admin_id")
+    private AdminProfile createdByAdmin; // Admin who created this profile, can be null if created by system
 
 }
