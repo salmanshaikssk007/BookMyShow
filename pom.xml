@@ -8,11 +8,11 @@
 		<version>3.5.0</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.example</groupId>
+	<groupId>com.bookmyshow</groupId>
 	<artifactId>BookMyShow</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>BookMyShow-0.0.1-SNAPSHOT.jar</version>
 	<name>BookMyShow</name>
-	<description>Demo project for Spring Boot</description>
+	<description>Building Production level project </description>
 	<url/>
 	<licenses>
 		<license/>
