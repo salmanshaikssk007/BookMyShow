@@ -1,14 +1,14 @@
 spring:
   profiles:
-    active: dev
+    active: ${SPRING_PROFILES_ACTIVE:dev}
 
   application:
     name: BookMyShow
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/bookmyshow
-    username: postgres
-    password: password
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -22,20 +22,20 @@ spring:
 
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
       repositories:
         enabled: false
 
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
   servlet:
     context-path: /
 
 app:
   jwt:
-    secret: bXlTdXBlclNlY3JldEtleUZvckJvb2tNeVNob3dBcHBsaWNhdGlvbjEyMzQ1Njc4
-    expiration-ms: 86400000
+    secret: ${JWT_SECRET}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
 
 springdoc:
   swagger-ui:
