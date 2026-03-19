@@ -25,6 +25,8 @@ public class DevDataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
+        seedZones();
+
         if (adminRepository.count() > 0) {
             return; // Data already seeded, skip
         }
@@ -44,6 +46,38 @@ public class DevDataSeeder implements CommandLineRunner {
         createAndMapAdmin("sea-admin@bms.com", "Seattle Admin", "seapass", "US-WA-SEA");
 
         System.out.println("✅ Admin profiles seeded in dev profile");
+    }
+
+    private void seedZones() {
+        if (adminZoneRepository.count() > 0) {
+            return; // Zones already exist, skip zone seeding
+        }
+
+        AdminZone world = saveZone("WORLD", "World", 0, null);
+
+        AdminZone us = saveZone("US", "United States", 1, world);
+
+        AdminZone ca = saveZone("US-CA", "California", 2, us);
+        AdminZone ny = saveZone("US-NY", "New York", 2, us);
+        AdminZone tx = saveZone("US-TX", "Texas", 2, us);
+        AdminZone fl = saveZone("US-FL", "Florida", 2, us);
+        AdminZone wa = saveZone("US-WA", "Washington", 2, us);
+
+        saveZone("US-NY-NYC", "New York City", 3, ny);
+        saveZone("US-CA-LA", "Los Angeles", 3, ca);
+        saveZone("US-WA-SEA", "Seattle", 3, wa);
+
+        System.out.println("✅ Admin zones seeded");
+    }
+
+    private AdminZone saveZone(String zoneCode, String zoneName, Integer level, AdminZone parentZone) {
+        AdminZone zone = AdminZone.builder()
+                .zoneCode(zoneCode)
+                .zoneName(zoneName)
+                .level(level)
+                .parentZone(parentZone)
+                .build();
+        return adminZoneRepository.save(zone);
     }
 
     // createAdmin method to create a root admin profile

@@ -1,0 +1,21 @@
+## Project context
+Spring Boot 3.x Java 17 backend. BookMyShow ticketing system.
+PostgreSQL + Redis + Kafka + Docker + AWS ECS.
+
+## Code standards
+- Always use constructor injection, never @Autowired field injection
+- All service methods must be @Transactional where they write to DB
+- Use @Slf4j for logging — never System.out.println
+- Always add MDC.put("requestId", ...) at controller entry point
+- Custom exceptions must extend RuntimeException, have a message
+- DTOs must use records (Java 17) not plain classes
+
+## What NOT to do
+- Never hardcode connection strings or secrets
+- Never catch generic Exception — always catch specific types
+- Never return null from service methods — use Optional
+- Never put business logic in controllers
+
+## Testing
+- Unit tests use Mockito, integration tests use @SpringBootTest
+- Every service method needs at least one happy path + one exception test
