@@ -7,13 +7,14 @@ import com.example.BookMyShow.auth.repository.LoginCredRepository;
 import com.example.BookMyShow.auth.repository.UserRepository;
 import com.example.BookMyShow.auth.repository.VendorRepository;
 import com.example.BookMyShow.auth.util.JwtUtils;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class AuthServiceImpl implements AuthService{
+public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final VendorRepository vendorRepository;
@@ -21,107 +22,187 @@ public class AuthServiceImpl implements AuthService{
     private final AdminRepository adminRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
+    private final TokenBlacklistService tokenBlacklistService;
+    private final LoginAttemptService loginAttemptService;
 
     @Override
+    @Transactional
     public void registerUser(UserSignUpRequest request) {
-        // Check if the user already exists by username or email
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new RuntimeException("Username is already taken");
         }
-        // Check if the email is already registered
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email is already registered");
         }
+        if (loginCredRepository.existsByUsername(request.getEmail())) {
+            throw new RuntimeException("Email is already in use");
+        }
 
-        // Create a new user entity and set its properties
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword())) // Encode the password
+                .password(passwordEncoder.encode(request.getPassword()))
                 .build();
-        // Save the new user to the repository
         userRepository.save(user);
-        // create a new user in the LoginCredRepository
-        LoginUserCredRoleCheck loginUser = LoginUserCredRoleCheck.builder()
-                .username(request.getUsername())
-                .role(Role.ROLE_USER) // Set the role to USER
-                .entity_id(user.getId()) // Set the entity ID to the user's ID
-                .build();
 
-        // Save the login credentials with the role
+        LoginUserCredRoleCheck loginUser = LoginUserCredRoleCheck.builder()
+                .username(request.getEmail())
+                .role(Role.ROLE_USER)
+                .entity_id(user.getId())
+                .build();
         loginCredRepository.save(loginUser);
     }
 
     @Override
+    @Transactional
     public void registerVendor(VendorSignUpRequest request) {
-        // Check if the vendor already exists by username
-        if(vendorRepository.existsByBussinessName(request.getBussinessName())) {
-            throw new RuntimeException("Username is already taken");
+        if (vendorRepository.existsByBussinessName(request.getBussinessName())) {
+            throw new RuntimeException("Business name is already taken");
         }
-        // Check if the email is already registered
-        if(vendorRepository.existsByEmail(request.getEmail())) {
+        if (vendorRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email is already registered");
         }
-        // Create a new vendor entity and set its properties
+        if (loginCredRepository.existsByUsername(request.getEmail())) {
+            throw new RuntimeException("Email is already in use");
+        }
+
         VendorProfile vendor = VendorProfile.builder()
                 .bussinessName(request.getBussinessName())
                 .email(request.getEmail())
                 .bussinessLicenseNumber(request.getBussinessLicenseNumber())
-                .password(passwordEncoder.encode(request.getPassword())) // Encode the password
+                .password(passwordEncoder.encode(request.getPassword()))
                 .phoneNumber(request.getPhoneNumber())
                 .build();
-        // Save the new vendor to the repository
         vendorRepository.save(vendor);
-        // create a new user in the LoginCredRepository
-        LoginUserCredRoleCheck loginUser = LoginUserCredRoleCheck.builder()
-                .username(request.getBussinessName())
-                .role(Role.ROLE_VENDOR) // Set the role to VENDOR
-                .entity_id(vendor.getId()) // Set the entity ID to the vendor's ID
-                .build();
 
-        // Save the login credentials with the role
+        LoginUserCredRoleCheck loginUser = LoginUserCredRoleCheck.builder()
+                .username(request.getEmail())
+                .role(Role.ROLE_VENDOR)
+                .entity_id(vendor.getId())
+                .build();
         loginCredRepository.save(loginUser);
     }
 
     @Override
     public JWTResponse login(LoginRequest request) {
+        String username = request.getUsername();
+        loginAttemptService.checkBlocked(username);
 
-        // check if role exists in central login table
-        LoginUserCredRoleCheck loginRecord = loginCredRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new RuntimeException("Invalid username or password"));
+        try {
+            LoginUserCredRoleCheck loginRecord = loginCredRepository.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("Invalid username or password"));
 
-        Role role = loginRecord.getRole();
+            Role role = loginRecord.getRole();
+            Long entityId = loginRecord.getEntity_id();
+
+            JWTResponse response;
+            switch (role) {
+                case ROLE_USER:
+                    User user = userRepository.findById(entityId)
+                            .orElseThrow(() -> new RuntimeException("User not found"));
+                    if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+                        throw new RuntimeException("Invalid username or password");
+                    }
+                    response = buildResponse(user.getEmail(), role, user.getId(), user.getUsername(), user.getEmail());
+                    break;
+
+                case ROLE_VENDOR:
+                    VendorProfile vendor = vendorRepository.findById(entityId)
+                            .orElseThrow(() -> new RuntimeException("Vendor not found"));
+                    if (!passwordEncoder.matches(request.getPassword(), vendor.getPassword())) {
+                        throw new RuntimeException("Invalid username or password");
+                    }
+                    response = buildResponse(vendor.getEmail(), role, vendor.getId(), vendor.getBussinessName(), vendor.getEmail());
+                    break;
+
+                case ROLE_ADMIN:
+                    AdminProfile admin = adminRepository.findById(entityId)
+                            .orElseThrow(() -> new RuntimeException("Admin not found"));
+                    if (!passwordEncoder.matches(request.getPassword(), admin.getPassword())) {
+                        throw new RuntimeException("Invalid username or password");
+                    }
+                    response = buildResponse(admin.getEmail(), role, admin.getId(), admin.getAdminName(), admin.getEmail());
+                    break;
+
+                default:
+                    throw new RuntimeException("Invalid role");
+            }
+
+            loginAttemptService.resetAttempts(username);
+            return response;
+
+        } catch (RuntimeException e) {
+            // Don't count a lockout exception as a new failure
+            if (!e.getMessage().startsWith("Account temporarily locked")) {
+                loginAttemptService.recordFailure(username);
+            }
+            throw e;
+        }
+    }
+
+    @Override
+    public JWTResponse refresh(String refreshToken) {
+        if (!jwtUtils.validateJwtToken(refreshToken)) {
+            throw new RuntimeException("Invalid refresh token");
+        }
+        if (!"refresh".equals(jwtUtils.getTokenType(refreshToken))) {
+            throw new RuntimeException("Invalid token type");
+        }
+        String jti = jwtUtils.getJtiFromToken(refreshToken);
+        if (tokenBlacklistService.isBlacklisted(jti)) {
+            throw new RuntimeException("Refresh token has been revoked");
+        }
+
+        String username = jwtUtils.getUsernameFromJwtToken(refreshToken);
+        Role role = Role.valueOf(jwtUtils.getRolesFromJwtToken(refreshToken));
+
+        // Blacklist the used refresh token (rotation)
+        long ttlMs = jwtUtils.getRemainingValidityMs(refreshToken);
+        tokenBlacklistService.blacklist(jti, ttlMs);
+
+        // Look up entity details for the response
+        LoginUserCredRoleCheck loginRecord = loginCredRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
         Long entityId = loginRecord.getEntity_id();
-        String token ;
-        // switch based on the role to fetch the user or vendor
+
         switch (role) {
             case ROLE_USER:
                 User user = userRepository.findById(entityId)
                         .orElseThrow(() -> new RuntimeException("User not found"));
-                if(!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-                    throw new RuntimeException("Invalid username or password");
-                }
-                 token = jwtUtils.generateJwtToken(user.getUsername(), role);
-                return new JWTResponse(token , "Bearer" , user.getId() , user.getUsername() , user.getEmail(), role);
+                return buildResponse(username, role, user.getId(), user.getUsername(), user.getEmail());
+
             case ROLE_VENDOR:
                 VendorProfile vendor = vendorRepository.findById(entityId)
                         .orElseThrow(() -> new RuntimeException("Vendor not found"));
-                if(!passwordEncoder.matches(request.getPassword(), vendor.getPassword())) {
-                    throw new RuntimeException("Invalid username or password");
-                }
-                 token = jwtUtils.generateJwtToken(vendor.getBussinessName(), role);
-                return new JWTResponse(token , "Bearer" , vendor.getId() , vendor.getBussinessName() , vendor.getEmail(), role);
+                return buildResponse(username, role, vendor.getId(), vendor.getBussinessName(), vendor.getEmail());
+
             case ROLE_ADMIN:
-                // Assuming you have an Admin entity and repository, you can implement similar logic here
-                 AdminProfile admin = adminRepository.findById(entityId)
-                         .orElseThrow(() -> new RuntimeException("Admin not found"));
-                 if(!passwordEncoder.matches(request.getPassword(), admin.getPassword())) {
-                     throw new RuntimeException("Invalid username or password");
-                 }
-                 token = jwtUtils.generateJwtToken(admin.getAdminName(), role);
-                 return new JWTResponse(token , "Bearer" , admin.getId() , admin.getAdminName() , admin.getEmail(), role);
+                AdminProfile admin = adminRepository.findById(entityId)
+                        .orElseThrow(() -> new RuntimeException("Admin not found"));
+                return buildResponse(username, role, admin.getId(), admin.getAdminName(), admin.getEmail());
+
             default:
                 throw new RuntimeException("Invalid role");
         }
+    }
+
+    @Override
+    public void logout(String accessToken, String refreshToken) {
+        if (accessToken != null && jwtUtils.validateJwtToken(accessToken)) {
+            String jti = jwtUtils.getJtiFromToken(accessToken);
+            long ttlMs = jwtUtils.getRemainingValidityMs(accessToken);
+            tokenBlacklistService.blacklist(jti, ttlMs);
+        }
+        if (refreshToken != null && jwtUtils.validateJwtToken(refreshToken)) {
+            String jti = jwtUtils.getJtiFromToken(refreshToken);
+            long ttlMs = jwtUtils.getRemainingValidityMs(refreshToken);
+            tokenBlacklistService.blacklist(jti, ttlMs);
+        }
+    }
+
+    private JWTResponse buildResponse(String subject, Role role, Long id, String username, String email) {
+        String accessToken = jwtUtils.generateAccessToken(subject, role);
+        String refreshToken = jwtUtils.generateRefreshToken(subject, role);
+        return new JWTResponse(accessToken, refreshToken, "Bearer", id, username, email, role);
     }
 }

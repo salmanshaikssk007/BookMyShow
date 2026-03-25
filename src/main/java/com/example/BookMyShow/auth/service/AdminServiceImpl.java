@@ -8,6 +8,7 @@ import com.example.BookMyShow.auth.entity.Role;
 import com.example.BookMyShow.auth.repository.AdminRepository;
 import com.example.BookMyShow.auth.repository.AdminZoneRepository;
 import com.example.BookMyShow.auth.repository.LoginCredRepository;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -28,12 +29,13 @@ public class AdminServiceImpl implements AdminService{
      * @param request the admin creation request containing admin details
      */
     @Override
+    @Transactional
     public void createAdmin(AdminCreationRequest request) {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         // Get the currently authenticated admin
         String username = auth.getName();
-        AdminProfile creator = adminRepository.findByAdminName(username)
+        AdminProfile creator = adminRepository.findByEmail(username)
                 .orElseThrow(() -> new RuntimeException("Admin not found"));
 
         AdminZone creatorZone = creator.getAdminZone();
@@ -58,23 +60,31 @@ public class AdminServiceImpl implements AdminService{
             throw new RuntimeException("You are not allowed to create an admin in this zone");
         }
 
+        if (adminRepository.existsByEmail(request.getEmail())) {
+            throw new RuntimeException("Email is already registered");
+        }
+        if (loginCredRepository.existsByUsername(request.getEmail())) {
+            throw new RuntimeException("Email is already in use");
+        }
+
         // Create a new admin profile
         AdminProfile newAdmin = AdminProfile.builder()
                 .adminName(request.getAdminName())
                 .email(request.getEmail())
                 .phoneNumber(request.getPhoneNumber())
-                .password(passwordEncoder.encode(request.getPassword())) // Encode the password
-                .adminZone(targetZone) // Set the admin zone
+                .password(passwordEncoder.encode(request.getPassword()))
+                .adminZone(targetZone)
+                .createdByAdmin(creator)
                 .build();
 
         // Save the new admin profile to the repository
         adminRepository.save(newAdmin);
 
-        // create a new admin in the LoginCredRepository
+        // Use email as the canonical login username for all admins (consistent with DevDataSeeder)
         LoginUserCredRoleCheck loginAdmin = LoginUserCredRoleCheck.builder()
-                .username(request.getAdminName())
-                .role(Role.ROLE_ADMIN) // Set the role to ADMIN
-                .entity_id(newAdmin.getId()) // Set the entity ID to the new admin's ID
+                .username(request.getEmail())
+                .role(Role.ROLE_ADMIN)
+                .entity_id(newAdmin.getId())
                 .build();
         // Save the login credentials with the role
         loginCredRepository.save(loginAdmin);

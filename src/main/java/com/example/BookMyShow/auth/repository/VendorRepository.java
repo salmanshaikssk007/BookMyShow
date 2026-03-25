@@ -13,6 +13,9 @@ public interface VendorRepository extends JpaRepository<VendorProfile, Long> {
     // Method to find a vendor by their username
     Optional<VendorProfile> findByBussinessName(String bussinessName);
 
+    // Method to find a vendor by their email
+    Optional<VendorProfile> findByEmail(String email);
+
     // Method to check if a vendor exists by their email
     Boolean existsByEmail(String email);
 

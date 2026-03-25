@@ -2,10 +2,12 @@ package com.example.BookMyShow.auth.controller;
 
 import com.example.BookMyShow.auth.dto.JWTResponse;
 import com.example.BookMyShow.auth.dto.LoginRequest;
+import com.example.BookMyShow.auth.dto.RefreshRequest;
 import com.example.BookMyShow.auth.dto.UserSignUpRequest;
 import com.example.BookMyShow.auth.dto.VendorSignUpRequest;
 import com.example.BookMyShow.auth.service.AuthService;
 import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -20,24 +22,40 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
-    // /auth/user/signup to register a new user
+
     @PostMapping("/user/signup")
     public ResponseEntity<String> registerUser(@Valid @RequestBody UserSignUpRequest request) {
         authService.registerUser(request);
         return ResponseEntity.ok("User registered successfully");
     }
+
     @PostMapping("/vendor/signup")
     public ResponseEntity<String> registerVendor(@Valid @RequestBody VendorSignUpRequest request) {
         authService.registerVendor(request);
-        return ResponseEntity.ok("User registered successfully");
+        return ResponseEntity.ok("Vendor registered successfully");
     }
-    //  /auth/login to login a user
+
     @PostMapping("/login")
     public ResponseEntity<JWTResponse> login(@Valid @RequestBody LoginRequest request) {
-        JWTResponse response = authService.login(request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(authService.login(request));
     }
-    // This method is called after the bean is initialized by Spring
+
+    @PostMapping("/refresh")
+    public ResponseEntity<JWTResponse> refresh(@Valid @RequestBody RefreshRequest request) {
+        return ResponseEntity.ok(authService.refresh(request.getRefreshToken()));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(HttpServletRequest request,
+                                         @RequestBody(required = false) RefreshRequest body) {
+        String authHeader = request.getHeader("Authorization");
+        String accessToken = (authHeader != null && authHeader.startsWith("Bearer "))
+                ? authHeader.substring(7).trim() : null;
+        String refreshToken = (body != null) ? body.getRefreshToken() : null;
+        authService.logout(accessToken, refreshToken);
+        return ResponseEntity.ok("Logged out successfully");
+    }
+
     @PostConstruct
     public void init() {
         System.out.println("✅ AuthController is loaded by Spring!");

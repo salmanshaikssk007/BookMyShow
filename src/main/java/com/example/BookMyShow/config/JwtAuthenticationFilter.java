@@ -1,5 +1,6 @@
 package com.example.BookMyShow.config;
 
+import com.example.BookMyShow.auth.service.TokenBlacklistService;
 import com.example.BookMyShow.auth.util.JwtUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -17,7 +18,9 @@ import java.io.IOException;
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
     private final JwtUtils jwtUtils;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
@@ -27,9 +30,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String jwtToken = authHeader.substring(7).trim();
             if (jwtUtils.validateJwtToken(jwtToken)) {
-                // Extract the username from the JWT token
+                if (!"access".equals(jwtUtils.getTokenType(jwtToken))) {
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token type");
+                    return;
+                }
+                String jti = jwtUtils.getJtiFromToken(jwtToken);
+                if (tokenBlacklistService.isBlacklisted(jti)) {
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token has been revoked");
+                    return;
+                }
+
                 String username = jwtUtils.getUsernameFromJwtToken(jwtToken);
-                // Extract the roles from the JWT token
                 String roles = jwtUtils.getRolesFromJwtToken(jwtToken);
 
                 var authority = new SimpleGrantedAuthority(roles);

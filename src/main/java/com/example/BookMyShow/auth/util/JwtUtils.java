@@ -8,64 +8,81 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import java.security.Key;
 import java.util.Date;
+import java.util.UUID;
 
 @Component
-// JwtUtils is a utility class for handling JSON Web Tokens (JWT).
 public class JwtUtils {
 
     private final Key jwtSecretKey;
     private final long jwtExpirationMs;
+    private final long refreshExpirationMs;
 
     public JwtUtils(
             @Value("${app.jwt.secret}") String jwtSecret,
-            @Value("${app.jwt.expiration-ms}") long jwtExpirationMs
+            @Value("${app.jwt.expiration-ms}") long jwtExpirationMs,
+            @Value("${app.jwt.refresh-expiration-ms}") long refreshExpirationMs
     ) {
         byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
         this.jwtSecretKey = Keys.hmacShaKeyFor(keyBytes);
         this.jwtExpirationMs = jwtExpirationMs;
+        this.refreshExpirationMs = refreshExpirationMs;
     }
-    /**
-     * Generate a JWT token containing username and roles as claims.
-     */
-    public String generateJwtToken(String username , Role role){
+
+    public String generateAccessToken(String username, Role role) {
         return Jwts.builder()
+                .setId(UUID.randomUUID().toString())
                 .setSubject(username)
                 .claim("role", role)
+                .claim("type", "access")
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
                 .signWith(jwtSecretKey, SignatureAlgorithm.HS256)
                 .compact();
     }
-    /**
-     * Extract the username from the JWT token.
-     */
+
+    public String generateRefreshToken(String username, Role role) {
+        return Jwts.builder()
+                .setId(UUID.randomUUID().toString())
+                .setSubject(username)
+                .claim("role", role)
+                .claim("type", "refresh")
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + refreshExpirationMs))
+                .signWith(jwtSecretKey, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
     public String getUsernameFromJwtToken(String token) {
         return parseClaims(token).getBody().getSubject();
     }
 
-    /**
-     * Extract the roles from the JWT token.
-     */
-    @SuppressWarnings("unchecked")
     public String getRolesFromJwtToken(String token) {
         return parseClaims(token).getBody().get("role", String.class);
     }
-    /**
-     * Validate the JWT token.
-     */
-    public boolean validateJwtToken(String authToken){
+
+    public String getTokenType(String token) {
+        return parseClaims(token).getBody().get("type", String.class);
+    }
+
+    public String getJtiFromToken(String token) {
+        return parseClaims(token).getBody().getId();
+    }
+
+    public long getRemainingValidityMs(String token) {
+        Date expiration = parseClaims(token).getBody().getExpiration();
+        return expiration.getTime() - System.currentTimeMillis();
+    }
+
+    public boolean validateJwtToken(String authToken) {
         try {
             parseClaims(authToken);
             return true;
-        }catch (JwtException | IllegalArgumentException e) {
-            // Log the exception or handle it as needed
-            System.err.println("JWT token is invalid: " + e.getMessage()) ;
+        } catch (JwtException | IllegalArgumentException e) {
+            System.err.println("JWT token is invalid: " + e.getMessage());
         }
         return false;
     }
-    /**
-     * Parse the JWT token and return the claims.
-     */
+
     private Jws<Claims> parseClaims(String token) {
         try {
             return Jwts.parserBuilder()
