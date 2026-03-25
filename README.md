@@ -1,157 +1,213 @@
-# 🎟️ BookMyShow Backend – Auth Service
+# BookMyShow – Backend
 
-This is the **Authentication Module** of the `BookMyShow` backend system, implemented using **Java + Spring Boot** with a clean, scalable design built for real-world use cases.
-
-## 🔐 Overview
-
-The Auth module supports secure, role-based authentication and signup for three distinct actors:
-
-- 👤 **User** – end customer booking tickets
-- 🏢 **Vendor** – manages shows, venues
-- 🛡️ **Admin** – creates other admins, controls by zone
-
-Rather than stuffing all roles into a single table, this service separates concerns cleanly using:
-
-- ✅ Separate entities: `User`, `VendorProfile`, `AdminProfile`
-- ✅ Central login mapping: `LoginCredential` table with `userType`, `entityId`
-- ✅ JWT-based authentication with stateless, token-secured APIs
+A Spring Boot backend clone of BookMyShow, implementing role-based authentication and a full movie booking domain.
 
 ---
 
-## 🧭 Architecture
+## Tech Stack
 
-```
-Client → AuthController → AuthService → Role Repositories
-                                ↳ LoginCredentialRepository
-                                ↳ JwtService
-```
-
-**Signup Flow (User/Vendor):**
-- Save respective entity
-- Add to `LoginCredential`
-
-**Login Flow:**
-- Fetch user by username
-- Use `userType` to resolve repo
-- Validate password → issue JWT
-
-**Admin Creation Flow:**
-- Admins are created by other admins only
-- Zone validation logic to prevent cross-region creation
+- **Java 17**, Spring Boot 3.5.0, Maven
+- **Spring Security** – stateless JWT (HS256, 24h expiry, BCrypt passwords)
+- **PostgreSQL** – primary database (port 5432, db: `BookMyShow`)
+- **Redis** – port 6379 (wired, used for JTI cache / future caching)
+- **OpenAPI / Swagger** – available at `http://localhost:8080/swagger-ui/index.html`
 
 ---
 
-## 📂 Module Structure
+## Prerequisites
+
+| Service    | Default                                                                  |
+|------------|--------------------------------------------------------------------------|
+| PostgreSQL | `localhost:5432`, db: `BookMyShow`, user: `postgres`, pass: `password`   |
+| Redis      | `localhost:6379`                                                         |
+
+---
+
+## Build & Run
+
+```bash
+# Build (skip tests)
+./mvnw clean package -DskipTests
+
+# Run (dev profile — seeds test data on startup)
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+
+# Run tests
+./mvnw test
+```
+
+App starts on **port 8080**.
+
+---
+
+## Architecture
+
+### Central Login Dispatch
+
+Rather than a single `users` table with roles, each actor type has its own entity table. `LoginUserCredRoleCheck` is the central login lookup:
 
 ```
-📁 authservice
- ┣ 📁 controller         → REST endpoints for login and signup
- ┣ 📁 dto                → DTOs with validation annotations
- ┣ 📁 model              → Entity classes: User, Vendor, Admin, LoginCredential
- ┣ 📁 repository         → JPA repositories
- ┣ 📁 service
- ┃ ┣ 📄 AuthService      → Interface
- ┃ ┣ 📄 AuthServiceImpl  → Core login/signup logic
- ┃ ┗ 📄 JwtService       → JWT utility
- ┣ 📄 SecurityConfig     → JWT filters, security rules
- ┗ 📄 Application.java
+LoginUserCredRoleCheck { username (unique), role, entity_id }
+         |
+         |-- ROLE_USER    --> users.id
+         |-- ROLE_VENDOR  --> vendor_profiles.id
+         └-- ROLE_ADMIN   --> admin_profiles.id
+```
+
+**Login flow:** lookup by username → get role + entity_id → fetch entity from its table → verify BCrypt password → issue JWT.
+
+**Signup** always writes two rows: one in the actor's own table, one in `LoginUserCredRoleCheck`.
+
+### JWT – No UserDetailsService
+
+The `JwtAuthenticationFilter` reads the `Authorization: Bearer` header, validates via `JwtUtils`, extracts username + role claim, and constructs a `UsernamePasswordAuthenticationToken` with a `SimpleGrantedAuthority`. No DB call on every request.
+
+### Admin Zone Hierarchy
+
+`AdminZone` is a self-referencing tree (PK: `zoneCode`, e.g. `"WORLD"`, `"US"`, `"US-CA"`, `"US-CA-LA"`). Level 0 = root, 1 = country, 2 = state, 3 = city. An admin can only create admins **one level below** their own zone and within their branch.
+
+---
+
+## Module Structure
+
+```
+com.example.BookMyShow
+├── auth/
+│   ├── controller/        AuthController, AdminController
+│   ├── dto/               SignUp/Login/Admin request + JWTResponse
+│   ├── entity/            User, VendorProfile, AdminProfile, AdminZone, LoginUserCredRoleCheck, Role
+│   ├── repository/        Per-entity JPA repositories
+│   ├── service/           AuthService, AdminService (+ Impl)
+│   ├── util/              JwtUtils
+│   └── devseed/           DevDataSeeder (@Profile="dev")
+├── booking/
+│   ├── entity/            Movie, City, Theater, Screen, Seat, Show, ShowSeat, Booking, BookingSeat
+│   ├── repository/        JPA repositories (ShowSeatRepository has availability query)
+│   └── devseed/           BookingDataSeeder (@Profile="dev")
+└── config/
+    ├── SecurityConfig.java
+    └── JwtAuthenticationFilter.java
 ```
 
 ---
 
-## 🔧 Tech Stack
+## Auth APIs
 
-- Java 17
-- Spring Boot 3
-- Spring Security (JWT)
-- PostgreSQL
-- Maven
-- JPA/Hibernate
-
----
-
-## 🔄 APIs
-
-### 🔐 Login
-```http
-POST /auth/login
-```
-- Body:
+### POST `/api/auth/user/signup`
 ```json
 {
-  "username": "john@bms.com",
-  "password": "secure"
-}
-```
-- Returns: `JWT Token` + userType
-
----
-
-### 🧾 User Signup
-```http
-POST /auth/signup/user
-```
-- Body:
-```json
-{
-  "name": "John",
-  "email": "john@bms.com",
-  "password": "secure"
+  "username": "john",
+  "email": "john@example.com",
+  "password": "secret"
 }
 ```
 
----
-
-### 🏢 Vendor Signup
-```http
-POST /auth/signup/vendor
-```
-- Body:
+### POST `/api/auth/vendor/signup`
 ```json
 {
   "vendorName": "PVR Cinemas",
-  "email": "vendor@pvr.com",
-  "password": "secure"
+  "email": "pvr@example.com",
+  "password": "secret",
+  "phoneNumber": "9999999999",
+  "bussinessName": "PVR Ltd",
+  "bussinessLicenseNumber": "LIC123"
+}
+```
+
+### POST `/api/auth/login`
+```json
+{
+  "username": "john",
+  "password": "secret"
+}
+```
+Returns: `{ "token": "<JWT>", "role": "ROLE_USER" }`
+
+### POST `/api/v1/admin/create` *(requires `ROLE_ADMIN` JWT)*
+```json
+{
+  "adminName": "state-admin",
+  "email": "admin@example.com",
+  "password": "secret",
+  "phoneNumber": "9999999999",
+  "zoneCode": "US-CA"
 }
 ```
 
 ---
 
-### 🛡️ Create Admin (Restricted)
-```http
-POST /admin/create
-```
-- Requires: Admin JWT token
-- Validates zone of creator and new admin
+## Booking Domain (entities ready, APIs in progress)
+
+| Entity        | Purpose                                                                             |
+|---------------|-------------------------------------------------------------------------------------|
+| `City`        | Geographic grouping of theaters                                                     |
+| `Theater`     | Belongs to a city                                                                   |
+| `Screen`      | Belongs to a theater; type: STANDARD / IMAX / FOUR_DX                              |
+| `Seat`        | Physical seat in a screen; type: REGULAR / PREMIUM / RECLINER / WHEELCHAIR_ACCESSIBLE |
+| `Movie`       | Title, language, genre, duration                                                    |
+| `Show`        | A movie on a screen at a time; status: SCHEDULED / ONGOING / CANCELLED / etc.      |
+| `ShowSeat`    | Real-time seat availability per show (optimistic lock + TTL for temp locks)         |
+| `Booking`     | A user's order for a show                                                           |
+| `BookingSeat` | Individual seat line item in a booking                                              |
+
+### Planned Booking APIs
+
+| Method | Endpoint                              | Description                        |
+|--------|---------------------------------------|------------------------------------|
+| `GET`  | `/api/booking/cities`                 | List cities                        |
+| `GET`  | `/api/booking/cities/{cityId}/movies` | Movies showing in a city           |
+| `GET`  | `/api/booking/movies/{movieId}/shows` | Shows for a movie                  |
+| `GET`  | `/api/booking/shows/{showId}/seats`   | Seat availability                  |
+| `POST` | `/api/booking/lock-seats`             | Temporarily lock seats (TTL)       |
+| `POST` | `/api/booking/confirm`                | Confirm booking                    |
+| `GET`  | `/api/booking/my-bookings`            | User's booking history             |
+| `POST` | `/api/booking/{bookingId}/cancel`     | Cancel a booking                   |
+| `POST` | `/api/v1/vendor/shows`                | Create a show *(ROLE_VENDOR)*      |
 
 ---
 
-## 🔒 Security
+## Dev Seed Data (`--spring.profiles.active=dev`)
 
-- JWT-based stateless authentication
-- Passwords hashed with BCrypt
-- Clean RBAC by splitting login/auth from entity roles
-- Admin creation restricted and zone-validated
+**Auth seeder:**
+- Root admin: `root@bms.com` / `rootpass` (zone: WORLD)
+- State admins: CA, NY, TX, FL
+- City admins: NYC, LA, Seattle
+
+**Booking seeder:**
+- 2 cities (Mumbai, Delhi), 10 theaters, 5 screens
+- 100 seats (20/screen — rows A/B: REGULAR, C: PREMIUM, D: RECLINER)
+- 2 movies: Inception, RRR
+- 3 shows with all seats initialized as AVAILABLE
 
 ---
 
-## 📌 Roadmap
+## Known Issues
 
-- [x] JWT Authentication
-- [x] Zone-based Admin Creation
+- `bussinessName` / `bussinessLicenseNumber` — intentional double-'s' typo in `VendorProfile` (matches DB column, do not rename without migration)
+- Dev seeder logs admins in with **email** as username; `AdminServiceImpl` saves **adminName** — inconsistency when testing seeded admin login
+- No global exception handler — unhandled `RuntimeException`s return as 500s
+
+---
+
+## Roadmap
+
+- [x] JWT authentication (access + refresh tokens)
+- [x] Zone-based admin hierarchy
+- [x] Booking domain entities + dev seed
+- [ ] Booking service + controllers
+- [ ] Seat lock/confirm flow with optimistic concurrency
+- [ ] Vendor show management APIs
+- [ ] Global exception handler (`@ControllerAdvice`)
 - [ ] MFA support
-- [ ] Token refresh endpoint
-- [ ] Login attempt tracking / IP logging
+- [ ] Login attempt tracking
 
 ---
 
-## 👨‍💻 Author
+## Author
 
-**Salman Shaik**  
-[GitHub Profile](https://github.com/salmanshaikssk007)
+**Salman Shaik**
+[GitHub](https://github.com/salmanshaikssk007)
 
 ---
-
-## 📜 License
 
 MIT License
